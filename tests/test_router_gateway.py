@@ -1,4 +1,4 @@
-from app.router import choose_tier, complexity_score
+from app.router import choose_tier
 from app.cache import TTLCache, cache_key
 from app.backend import MockBackend
 from app.gateway import Gateway, Request

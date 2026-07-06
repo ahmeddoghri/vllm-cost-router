@@ -87,10 +87,9 @@ class OpenAICompatBackend:
                 elapsed_ms = (time.perf_counter() - start) * 1000
                 data = resp.json()
                 text = data["choices"][0]["message"]["content"]
-                usage = data.get("usage", {})
                 # cost estimation left to the caller's pricing table in production;
-                # here we surface token counts via cost_usd=0 and let ops attach
-                # real pricing based on `usage` if needed.
+                # here we surface cost_usd=0 and let ops attach real pricing based
+                # on the response's `usage` field if needed.
                 results.append(CompletionResult(text=text, model=model, cost_usd=0.0,
                                                  latency_ms=elapsed_ms))
         return results
