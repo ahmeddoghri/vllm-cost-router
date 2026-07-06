@@ -1,3 +1,7 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+filterwarnings = [
+    # Starlette's TestClient emits this via its httpx integration; not ours to fix.
+    "ignore:Using `httpx`",
+]

@@ -21,6 +21,12 @@ class Settings:
     batch_window_ms: float = float(os.environ.get("BATCH_WINDOW_MS", "20"))
     max_batch_size: int = int(os.environ.get("MAX_BATCH_SIZE", "8"))
     complexity_threshold: float = float(os.environ.get("COMPLEXITY_THRESHOLD", "0.5"))
+    # Optional API-key auth: when set, write endpoints require a matching
+    # X-API-Key header. Empty (the default) leaves the service open.
+    api_key: str = os.environ.get("API_KEY", "")
+    # Request-size guards to keep a single caller from exhausting memory.
+    max_prompt_chars: int = int(os.environ.get("MAX_PROMPT_CHARS", "100000"))
+    max_batch_requests: int = int(os.environ.get("MAX_BATCH_REQUESTS", "128"))
 
 
 settings = Settings()

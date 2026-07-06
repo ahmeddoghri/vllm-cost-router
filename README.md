@@ -1,7 +1,7 @@
 # vllm-cost-router
 
 ![CI](https://github.com/ahmeddoghri/vllm-cost-router/actions/workflows/ci.yml/badge.svg)
-![tests](https://img.shields.io/badge/tests-13%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-19%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-black)
 
@@ -119,12 +119,28 @@ uvicorn app.main:app
 | `POST /v1/completions` | Single request: cache, route, complete |
 | `POST /v1/batch/completions` | Batch of requests, grouped by tier and dispatched together |
 | `GET /metrics` | Running cost, p50/p95 latency, cache hit rate, tier distribution |
-| `GET /healthz` | Liveness |
+| `GET /healthz` | Liveness probe |
+| `GET /readyz` | Readiness probe |
+
+## Production configuration
+
+All settings have safe local defaults; override via environment variables.
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `API_KEY` | *(empty)* | When set, write endpoints require a matching `X-API-Key` header. Empty leaves the service open. |
+| `MAX_PROMPT_CHARS` | `100000` | Rejects (422) prompts larger than this to bound memory. |
+| `MAX_BATCH_REQUESTS` | `128` | Caps how many requests one batch call may carry. |
+
+Every response carries an `X-Request-ID` header (echoed from the request if
+provided, otherwise generated) and requests are logged with method, path,
+status, and latency. Unhandled errors return a structured `500` without
+leaking stack traces.
 
 ## Tests
 
 ```bash
-pip install -r requirements-dev.txt && pytest -q      # 13 passing
+pip install -r requirements-dev.txt && pytest -q      # 19 passing
 ```
 
 ## License
