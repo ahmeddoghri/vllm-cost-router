@@ -10,7 +10,8 @@ from . import security
 from .backend import get_backend
 from .cache import TTLCache
 from .config import settings
-from .gateway import Gateway, Request as GatewayRequest
+from .gateway import Gateway
+from .gateway import Request as GatewayRequest
 from .metrics import Metrics
 from .security import require_api_key
 

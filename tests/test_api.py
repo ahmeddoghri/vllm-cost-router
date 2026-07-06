@@ -74,7 +74,10 @@ def test_api_key_enforced_when_configured(monkeypatch):
     # Rebuild the app with an API_KEY set so the auth dependency activates.
     monkeypatch.setenv("API_KEY", "s3cret")
     import importlib
-    import app.config, app.security, app.main
+
+    import app.config
+    import app.main
+    import app.security
     importlib.reload(app.config)
     importlib.reload(app.security)
     reloaded = importlib.reload(app.main)

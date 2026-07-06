@@ -1,9 +1,9 @@
-from app.router import choose_tier
-from app.cache import TTLCache, cache_key
 from app.backend import MockBackend
+from app.cache import TTLCache, cache_key
+from app.eval import generate_workload, run_naive, run_router
 from app.gateway import Gateway, Request
 from app.metrics import Metrics
-from app.eval import generate_workload, run_naive, run_router
+from app.router import choose_tier
 
 
 def test_simple_prompt_routes_to_small_tier():

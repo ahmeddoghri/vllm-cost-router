@@ -5,3 +5,11 @@ filterwarnings = [
     # Starlette's TestClient emits this via its httpx integration; not ours to fix.
     "ignore:Using `httpx`",
 ]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# Pyflakes (dead code, undefined names), syntax errors, and import sorting.
+# Style rules like line-length enforcement are intentionally left off.
+select = ["E9", "F", "I"]
