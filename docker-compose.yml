@@ -1,0 +1,11 @@
+services:
+  router:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      BACKEND: mock
+      # Point at a real vLLM server instead:
+      # BACKEND: openai
+      # OPENAI_BASE_URL: http://your-vllm-host:8000/v1
+      # OPENAI_API_KEY: your-key

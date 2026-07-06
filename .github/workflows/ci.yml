@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+      - name: Run tests
+        run: pytest -q
+      - name: Run benchmark
+        run: python -m app.eval
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Docker image
+        run: docker build -t vllm-cost-router:ci .
+      - name: Smoke-test the container
+        run: |
+          docker run -d --name router -p 8000:8000 vllm-cost-router:ci
+          for i in $(seq 1 10); do
+            curl -sf http://localhost:8000/healthz && break
+            sleep 1
+          done
+          curl -sf http://localhost:8000/healthz
+          curl -sf -X POST http://localhost:8000/v1/completions \
+            -H "Content-Type: application/json" \
+            -d '{"prompt": "hello"}'
+          docker logs router
+          docker stop router
