@@ -5,30 +5,34 @@
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-black)
 
-> **73% lower cost and 73% lower p95 latency** on a 500-request mixed workload —
-> same model quality, zero API keys to reproduce it: `python -m app.eval`.
+> **73% lower cost and 73% lower p95 latency** on a 500-request mixed
+> workload, same model quality, zero API keys to reproduce it:
+> `python -m app.eval`.
 
-A cost-and-latency-aware gateway that sits in front of your LLM serving layer
-and decides, per request: which model tier actually needs to handle this, is
-the answer already cached, and can this be batched with what's already in
-flight. FastAPI service, not a notebook.
+Sending "what are your business hours?" to your biggest, most expensive
+model is like renting a moving truck to pick up one bag of groceries.
+Technically it works. Your cloud bill will have questions. vllm-cost-router
+sits in front of your LLM serving layer and decides, per request, which
+model tier actually needs to handle this, whether the answer is already
+cached, and whether this can be batched with what's already in flight.
+FastAPI service, not a notebook you run once and forget about.
 
-I built this after spending a chunk of last year on exactly this problem —
+I built this after spending a chunk of last year on exactly this problem:
 getting inference cost and p95 latency down on a SageMaker/vLLM endpoint
-serving tens of thousands of requests a day. The mechanism there was model
-distillation plus batched serving; the routing/caching/batching stack here is
-the same idea distilled into something you can actually run and poke at.
-It's not the same code (that was proprietary), but it's the same shape of
+serving tens of thousands of requests a day. The mechanism there was
+model distillation plus batched serving. The routing/caching/batching
+stack here is the same idea distilled into something you can actually
+run and poke at. Not the same code (that was proprietary), same shape of
 solution, rebuilt from scratch as something shareable.
 
 ## Why this exists
 
-Most teams solve "inference is expensive" by either (a) always calling the
-big model and eating the cost, or (b) always calling the small model and
+Most teams solve "inference is expensive" by either always calling the
+big model and eating the cost, or always calling the small model and
 eating the quality hit on the requests that actually needed the big one.
 Neither is right. The fix is boring and it works: **route on complexity,
-cache what repeats, batch what's concurrent.** None of those three ideas is
-novel on its own — stacking all three in front of every request is what
+cache what repeats, batch what's concurrent.** None of those three ideas
+is novel by itself. Stacking all three in front of every request is what
 actually moves the number.
 
 ## The result, on a synthetic but disclosed workload
@@ -47,13 +51,14 @@ router             $0.8190           60.0ms              46%
 cost reduction: 73%   p95 latency reduction: 73%
 ```
 
-I want to be upfront about how this number is constructed, because a
-suspiciously round "94% savings!" is a red flag and I'd rather you trust the
-methodology than take the headline at face value: the workload mix and the
-2x cost/latency gap between tiers are both defined in `app/eval.py` and
-`app/backend.py`, in plain sight. Real production numbers depend entirely on
-your actual traffic mix and your actual tier pricing — plug those into the
-same harness and you'll get your own number, not mine.
+I want to be upfront about how this number is built, because a
+suspiciously round "94% savings!" is a red flag and I'd rather you trust
+the methodology than take the headline at face value. The workload mix
+and the 2x cost/latency gap between tiers are both defined in
+`app/eval.py` and `app/backend.py`, in plain sight. Real production
+numbers depend entirely on your actual traffic mix and your actual tier
+pricing. Plug those into the same harness and you'll get your own
+number, not mine.
 
 ## Install & run
 
@@ -103,8 +108,9 @@ request
 
 ## Point it at a real backend
 
-Defaults to a deterministic in-process mock so CI and local dev need zero
-API keys. Point it at a real vLLM server (or anything OpenAI-compatible):
+Defaults to a deterministic in-process mock so CI and local dev need
+zero API keys. Point it at a real vLLM server or anything
+OpenAI-compatible:
 
 ```bash
 export BACKEND=openai
@@ -135,10 +141,10 @@ All settings have safe local defaults; override via environment variables.
 | `MAX_PROMPT_CHARS` | `100000` | Rejects (422) prompts larger than this to bound memory. |
 | `MAX_BATCH_REQUESTS` | `128` | Caps how many requests one batch call may carry. |
 
-Every response carries an `X-Request-ID` header (echoed from the request if
-provided, otherwise generated) and requests are logged with method, path,
-status, and latency. Unhandled errors return a structured `500` without
-leaking stack traces.
+Every response carries an `X-Request-ID` header (echoed from the request
+if provided, otherwise generated), requests are logged with method, path,
+status, and latency, and unhandled errors return a structured `500`
+without leaking stack traces.
 
 ## Tests
 
@@ -148,7 +154,7 @@ pip install -r requirements-dev.txt && pytest -q      # 19 passing
 
 ## More in this series
 
-Nine small, dependency-light, benchmarked tools for LLM/ML infrastructure — each reproduces its headline number locally with no API keys:
+Nine small, dependency-light, benchmarked tools for LLM/ML infrastructure. Each one reproduces its headline number locally with no API keys:
 
 [agentmem](https://github.com/ahmeddoghri/agentmem) · [rubricagent](https://github.com/ahmeddoghri/rubricagent) · [clarifyrag](https://github.com/ahmeddoghri/clarifyrag) · [churnfm](https://github.com/ahmeddoghri/churnfm) · [citebench](https://github.com/ahmeddoghri/citebench) · [guardrail-gate](https://github.com/ahmeddoghri/guardrail-gate) · [tablextract](https://github.com/ahmeddoghri/tablextract) · [taggate](https://github.com/ahmeddoghri/taggate)
 

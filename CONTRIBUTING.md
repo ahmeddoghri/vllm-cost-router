@@ -12,9 +12,10 @@ pytest -q
 
 ## Before opening a pull request
 
-- Keep changes focused; one logical change per PR.
-- Add or update tests for any behaviour you change — CI runs `pytest` on
-  Python 3.10, 3.11, and 3.13, plus a Docker build-and-smoke-test.
+- Keep changes focused. One logical change per PR, not a drive-by rewrite.
+- Add or update tests for any behaviour you change. CI runs `pytest` on
+  Python 3.10, 3.11, and 3.13, plus a Docker build-and-smoke-test, so it
+  will find you.
 - Run `pytest -q` locally and make sure it passes.
 - Keep the README accurate if you change public behaviour or configuration.
 
