@@ -1,7 +1,7 @@
 # vllm-cost-router
 
 ![CI](https://github.com/ahmeddoghri/vllm-cost-router/actions/workflows/ci.yml/badge.svg)
-![tests](https://img.shields.io/badge/tests-19%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-28%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-black)
 
@@ -59,6 +59,53 @@ and the 2x cost/latency gap between tiers are both defined in
 numbers depend entirely on your actual traffic mix and your actual tier
 pricing. Plug those into the same harness and you'll get your own
 number, not mine.
+
+## Same router, real models
+
+The mock benchmark above proves the mechanism. This one proves it against
+actual model weights. vLLM itself will not run on a Mac (no CUDA), so the
+harness loads two real HuggingFace chat models locally, Qwen2.5-0.5B-Instruct
+as the small tier and Qwen2.5-1.5B-Instruct as the large one, and pushes a
+graded workload through the exact same Gateway. Real forward passes, real
+wall-clock latency, and a real quality gap. Nothing above the backend layer
+changes, which is the entire argument for having a backend layer.
+
+```bash
+pip install -r requirements-real.txt
+python -m app.realbench
+```
+```
+policy           quality*     mean lat      p95 lat    est cost
+always_small  19/24 =  79%        1797ms        4502ms     $0.0016
+always_large  24/24 = 100%        2421ms        6721ms     $0.0248
+router        19/24 =  79%        2549ms        6721ms     $0.0210  (24 small / 12 large)
+
+router vs always_large: 15% lower cost
+```
+
+Two honest findings, both less flattering than the mock and both more
+useful:
+
+1. **The savings shrink when cost is per-token.** The mock's 73% assumed a
+   per-call price gap. With real per-token pricing (the gpt-4o-mini vs
+   gpt-4o published rates), the long analytical answers that correctly stay
+   on the large tier dominate total spend, so routing the short stuff down
+   only trims 15%. Routing helps most when your traffic skews short and
+   simple; measure your mix before promising your CFO a number.
+
+2. **The small tier is not free.** Qwen2.5-0.5B got 79% on prompts with
+   exactly checkable answers. Its misses are not subtle: it answered 90 for
+   45 plus 55, and Spanish for the language of Brazil. The 1.5B went 24 for
+   24. If your tiers are this far apart in capability, the router's cost
+   win comes straight out of your quality budget. Pick a small tier you
+   would actually let talk to a user.
+
+Quality is graded only where grading is honest: factual containment and
+strict format checks (24 prompts). The 12 open-ended prompts drive routing,
+cost, and latency but are not scored, because keyword-matching an essay
+mostly measures truncation. An earlier version of this harness did exactly
+that and got cut. Generations are cached to `realbench_cache.json`
+(gitignored), so re-runs are instant; delete it to re-measure.
 
 ## Install & run
 
@@ -149,7 +196,7 @@ without leaking stack traces.
 ## Tests
 
 ```bash
-pip install -r requirements-dev.txt && pytest -q      # 19 passing
+pip install -r requirements-dev.txt && pytest -q      # 28 passing
 ```
 
 ## More in this series
