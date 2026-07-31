@@ -6,3 +6,6 @@ venv/
 *.egg-info/
 .env
 realbench_cache.json
+
+.venv/
+*.egg-info/

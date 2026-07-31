@@ -20,7 +20,19 @@ class Settings:
     cache_max_size: int = int(os.environ.get("CACHE_MAX_SIZE", "2048"))
     batch_window_ms: float = float(os.environ.get("BATCH_WINDOW_MS", "20"))
     max_batch_size: int = int(os.environ.get("MAX_BATCH_SIZE", "8"))
-    complexity_threshold: float = float(os.environ.get("COMPLEXITY_THRESHOLD", "0.5"))
+    # Which complexity scorer routes requests. "v2" (structural) is the
+    # default: on the held-out benchmark the v1 keyword scorer sends 100% of
+    # genuinely complex requests to the cheap tier, because real questions
+    # rarely contain the words it searches for. See app/routebench.py.
+    router_version: str = os.environ.get("ROUTER_VERSION", "v2")
+    # Thresholds are per-scorer; the two are on different scales, so one
+    # shared value would measure the scale rather than the router.
+    complexity_threshold: float = float(
+        os.environ.get(
+            "COMPLEXITY_THRESHOLD",
+            "0.10" if os.environ.get("ROUTER_VERSION", "v2") == "v2" else "0.5",
+        )
+    )
     # Optional API-key auth: when set, write endpoints require a matching
     # X-API-Key header. Empty (the default) leaves the service open.
     api_key: str = os.environ.get("API_KEY", "")

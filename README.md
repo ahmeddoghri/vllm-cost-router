@@ -1,13 +1,18 @@
 # vllm-cost-router
 
 ![CI](https://github.com/ahmeddoghri/vllm-cost-router/actions/workflows/ci.yml/badge.svg)
-![tests](https://img.shields.io/badge/tests-28%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-65%20passing-brightgreen)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-black)
 
 > **73% lower cost and 73% lower p95 latency** on a 500-request mixed
-> workload, same model quality, zero API keys to reproduce it:
-> `python -m app.eval`.
+> workload, zero API keys to reproduce it: `python -m app.eval`.
+>
+> And the number that makes that one mean anything: **0% of genuinely complex
+> requests misrouted to the cheap tier** on the adversarial split, 10% on a
+> held-out set. `python -m app.routereport`. The original keyword router
+> misrouted 100% of the holdout, which is why routing quality is now measured
+> instead of assumed.
 
 Sending "what are your business hours?" to your biggest, most expensive
 model is like renting a moving truck to pick up one bag of groceries.
@@ -59,6 +64,111 @@ and the 2x cost/latency gap between tiers are both defined in
 numbers depend entirely on your actual traffic mix and your actual tier
 pricing. Plug those into the same harness and you'll get your own
 number, not mine.
+
+## The cost number was real. The routing was not.
+
+The benchmark above measures cost. It cannot measure whether the router sent
+the right requests to the right tier, and those are different questions.
+Routing everything to the cheap tier saves 50% and is obviously wrong; no
+cost graph will tell you so.
+
+So I built the labeled corpus that does measure it, and the original router
+failed badly:
+
+```bash
+python -m app.routereport
+```
+
+| router | split | accuracy | misroute | overspend |
+| --- | --- | ---: | ---: | ---: |
+| keyword (v1) | easy | 1.000 | 0.0% | 0.0% |
+| keyword (v1) | adversarial | 0.542 | **91.7%** | 0.0% |
+| keyword (v1) | holdout | 0.545 | **100.0%** | 0.0% |
+| structural (v2) | easy | 1.000 | 0.0% | 0.0% |
+| structural (v2) | adversarial | 1.000 | 0.0% | 0.0% |
+| structural (v2) | holdout | 0.955 | 10.0% | 0.0% |
+
+**misroute** is the fraction of genuinely complex requests sent to the cheap
+tier. That is a silent quality regression: the user gets a worse answer, and
+your cost dashboard shows an improvement.
+
+### Why the old router looked perfect
+
+v1 scored complexity by searching for words like "explain", "analyze",
+"compare", and "design". The four complex prompts in the cost benchmark open
+with exactly those words. The benchmark was a mirror: it confirmed the router
+could find the words it was looking for.
+
+Write the same difficulty the way people actually type, and it collapses:
+
+```
+"Our checkout drops 4% of orders when Redis fails over."     score 0.072 -> cheap tier
+"The p99 on our embedding endpoint tripled after we          score 0.058 -> cheap tier
+ doubled batch size. What's going on?"
+"Two teams want the same hostname and neither will budge."   score 0.062 -> cheap tier
+```
+
+Threshold is 0.50. These are not near misses.
+
+The evidence was also sitting in the real-model results below, unread: the
+router scored **19/24, identical to always_small**, while costing 13x more.
+A router that adds no quality over the cheap tier is not routing.
+
+### What replaced it
+
+v2 scores structure rather than vocabulary. Does the request name subsystems
+(Postgres, replication, deadlock)? Does it carry quantities and units? Does it
+weigh named alternatives, or embed code? And critically, is it about the
+caller's own account, which makes "why was I charged twice" a lookup wearing a
+reasoning word rather than an engineering problem.
+
+Every routing decision is explainable, because one you cannot explain is one
+you cannot debug:
+
+```python
+>>> from app.router_v2 import analyze
+>>> analyze("Should we shard by tenant or by time at 400k writes/sec?").explain()
+'score=0.458 [technical_terms +0.16, quantities +0.11, alternatives +0.16, length +0.03]'
+```
+
+### About that holdout column
+
+v2's weights were fitted by hand against the easy and adversarial splits, so
+its scores there are in-sample and prove nothing on their own. The `holdout`
+split was written afterwards, with the weights frozen, and evaluated once. It
+is the only row in that table worth believing.
+
+v2 misses one of its ten holdout prompts: *"Two writers both read-modify-write
+the same counter and we lose about 3% of increments."* Real concurrency bug,
+no recognized subsystem name. I have deliberately not patched the term list to
+catch it, because tuning against a holdout after reading the result is how a
+holdout stops being one. It stands as the known failure mode: v2 leans on
+domain vocabulary, so a hard problem described in entirely plain language can
+still slip through.
+
+### The honest cost tradeoff
+
+Correct routing is not free. On a workload phrased the way users actually
+write, the broken router looks *better* on every number the cost benchmark
+reports:
+
+```bash
+python -m app.eval --realistic
+```
+```
+policy              total cost     p95 latency
+naive                  $3.0000          220.0ms
+router (v1)            $0.8310           60.0ms     <- 72% cheaper, misroutes ~all hard requests
+router (v2)            $0.8640           90.0ms     <- 71% cheaper, routes them correctly
+```
+
+v1 wins on cost and p95 precisely because it is answering hard questions with
+the small model. One point of cost is what correctness costs here. Report
+both numbers or the comparison is meaningless.
+
+`ROUTER_VERSION=v1` still selects the old scorer for comparison. v2 is the
+default, and anything unrecognized falls back to v2, because v1's failure mode
+is silent and should never be reached by accident.
 
 ## Same router, real models
 

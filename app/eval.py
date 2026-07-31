@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import random
 
+from . import routebench
 from .backend import MockBackend
 from .cache import TTLCache
 from .gateway import Gateway, Request
@@ -66,18 +67,27 @@ UNIQUE_TEMPLATES = [
 
 
 def generate_workload(n: int = 500, complex_fraction: float = 0.25,
-                      faq_fraction: float = 0.25, seed: int = 0) -> list[str]:
+                      faq_fraction: float = 0.25, seed: int = 0,
+                      realistic: bool = False) -> list[str]:
     """A support-bot-style mix: a minority of genuinely complex asks (large
     tier), a minority of literal repeated FAQs (cacheable), and the rest
     unique-but-simple templated requests (small tier, not cacheable) -- the
     realistic shape of production support traffic.
     """
     rng = random.Random(seed)
+    # The original complex prompts each happen to open with "Explain",
+    # "Analyze", "Design", or "Compare", which is exactly what the v1 keyword
+    # router searches for. That makes the default workload unable to tell a
+    # working router from a broken one. --realistic swaps in the same
+    # difficulty written the way users actually type it.
+    complex_pool = (
+        list(routebench.ADVERSARIAL_COMPLEX) if realistic else COMPLEX_PROMPTS
+    )
     workload = []
     for i in range(n):
         r = rng.random()
         if r < complex_fraction:
-            workload.append(rng.choice(COMPLEX_PROMPTS))
+            workload.append(rng.choice(complex_pool))
         elif r < complex_fraction + faq_fraction:
             workload.append(rng.choice(FAQS))
         else:
@@ -96,11 +106,12 @@ def run_naive(prompts: list[str]) -> Metrics:
     return metrics
 
 
-def run_router(prompts: list[str], threshold: float = 0.5, batch_size: int = 8) -> Metrics:
+def run_router(prompts: list[str], threshold: float = 0.5, batch_size: int = 8,
+               router_version: str = "v2") -> Metrics:
     """Router policy: complexity-based tiering + caching + micro-batching."""
     metrics = Metrics()
     gateway = Gateway(MockBackend(), TTLCache(max_size=4096, ttl_seconds=600), metrics,
-                      threshold, "small-tier", "large-tier")
+                      threshold, "small-tier", "large-tier", router_version)
     for i in range(0, len(prompts), batch_size):
         batch = [Request(p) for p in prompts[i:i + batch_size]]
         gateway.complete_batch(batch)
@@ -111,22 +122,34 @@ def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--n", type=int, default=500)
     p.add_argument("--batch-size", type=int, default=8)
+    p.add_argument("--realistic", action="store_true",
+                   help="use complex prompts phrased the way users actually write them")
     args = p.parse_args()
 
-    prompts = generate_workload(args.n)
+    prompts = generate_workload(args.n, realistic=args.realistic)
     naive = run_naive(prompts)
-    router = run_router(prompts, batch_size=args.batch_size)
+    v1 = run_router(prompts, threshold=0.5, batch_size=args.batch_size, router_version="v1")
+    v2 = run_router(prompts, threshold=0.10, batch_size=args.batch_size, router_version="v2")
 
-    cost_reduction = 1 - (router.total_cost_usd / naive.total_cost_usd)
-    p95_reduction = 1 - (router.percentile(95) / naive.percentile(95))
+    phrasing = "realistic phrasing" if args.realistic else "conventional phrasing"
+    print(f"workload: {args.n} requests, {phrasing} (25% genuinely complex, "
+          f"25% repeated FAQs, 50% unique-but-simple templated requests)\n")
+    print(f"{'policy':<16}{'total cost':>14}{'p95 latency':>16}{'cache hit rate':>18}")
+    print(f"{'naive':<16}{'$' + f'{naive.total_cost_usd:.4f}':>14}"
+          f"{naive.percentile(95):>15.1f}ms{'--':>18}")
+    for label, m in (("router (v1)", v1), ("router (v2)", v2)):
+        print(f"{label:<16}{'$' + f'{m.total_cost_usd:.4f}':>14}{m.percentile(95):>15.1f}ms"
+              f"{m.summary()['cache_hit_rate']:>17.0%}")
 
-    print(f"workload: {args.n} requests (25% genuinely complex, 25% repeated FAQs, "
-          f"50% unique-but-simple templated requests)\n")
-    print(f"{'policy':<12}{'total cost':>14}{'p95 latency':>16}{'cache hit rate':>18}")
-    print(f"{'naive':<12}{'$' + f'{naive.total_cost_usd:.4f}':>14}{naive.percentile(95):>15.1f}ms{'--':>18}")
-    print(f"{'router':<12}{'$' + f'{router.total_cost_usd:.4f}':>14}{router.percentile(95):>15.1f}ms"
-          f"{router.summary()['cache_hit_rate']:>17.0%}")
-    print(f"\ncost reduction: {cost_reduction:.0%}   p95 latency reduction: {p95_reduction:.0%}")
+    for label, m in (("v1", v1), ("v2", v2)):
+        cost_reduction = 1 - (m.total_cost_usd / naive.total_cost_usd)
+        p95_reduction = 1 - (m.percentile(95) / naive.percentile(95))
+        print(f"\n{label}: cost reduction {cost_reduction:.0%}, "
+              f"p95 latency reduction {p95_reduction:.0%}")
+
+    print("\nCost alone does not rank these. On the held-out routing benchmark v1 sends")
+    print("100% of genuinely complex requests to the cheap tier and v2 sends 10%:")
+    print("    python -m app.routereport")
 
 
 if __name__ == "__main__":

@@ -48,7 +48,8 @@ def test_gateway_repeated_request_hits_cache():
 
 def test_gateway_batch_groups_by_tier():
     metrics = Metrics()
-    gateway = Gateway(MockBackend(), TTLCache(ttl_seconds=60), metrics, 0.5, "small", "large")
+    # threshold=None uses whatever is correct for the configured router.
+    gateway = Gateway(MockBackend(), TTLCache(ttl_seconds=60), metrics, None, "small", "large")
     reqs = [Request("What are your business hours?"), Request("Where is my order?"),
             Request("Explain the trade-offs of eventual consistency vs strong consistency.")]
     results = gateway.complete_batch(reqs)

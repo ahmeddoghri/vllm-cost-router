@@ -38,9 +38,19 @@ LARGE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"
 CACHE_PATH = pathlib.Path(__file__).resolve().parent.parent / "realbench_cache.json"
 
 # ---------------------------------------------------------------- workload
-# Each item: (prompt, kind, payload). Factual prompts avoid the router's
-# reasoning-marker words on purpose; hard prompts use them on purpose. That
-# is not gaming the benchmark, it is what the router keys on by design.
+# Each item: (prompt, kind, payload). These prompts were originally written so
+# that the hard ones contained the v1 router's reasoning-marker words and the
+# factual ones did not, on the reasoning that this was "what the router keys on
+# by design". That made the benchmark a mirror: it confirmed the router could
+# find the words it was searching for, and could not have detected a router
+# that fails on anything phrased differently. It did not detect one.
+#
+# The tell was sitting in the published results the whole time: the router
+# scored 19/24, exactly the same as always_small, while costing 13x more. A
+# router adding no quality over the cheap tier is not routing.
+#
+# app/routebench.py is the corpus that actually tests this, including prompts
+# written to defeat keyword matching entirely.
 
 FACTUAL = [
     ("What is the capital of France? Answer in one word.", "paris"),
@@ -197,10 +207,11 @@ def run_fixed(backend: MemoBackend, items, tier: str) -> tuple[Metrics, int, int
 
 
 def run_routed(backend: MemoBackend, items,
-               threshold: float = 0.5) -> tuple[Metrics, int, int, dict]:
+               threshold: float | None = None,
+               router_version: str = "v2") -> tuple[Metrics, int, int, dict]:
     metrics = Metrics()
     gateway = Gateway(backend, TTLCache(max_size=256, ttl_seconds=600), metrics,
-                      threshold, "small-tier", "large-tier")
+                      threshold, "small-tier", "large-tier", router_version)
     correct = graded = 0
     for prompt, kind, payload in items:
         res = gateway.complete_one(Request(prompt))
@@ -213,7 +224,9 @@ def run_routed(backend: MemoBackend, items,
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument("--threshold", type=float, default=None,
+                        help="defaults to the right value for --router")
+    parser.add_argument("--router", default="v2", choices=["v1", "v2"])
     args = parser.parse_args()
 
     items = build_workload()
@@ -230,7 +243,7 @@ def main() -> None:
 
     small_m, small_ok, n_graded = run_fixed(backend, items, "small-tier")
     large_m, large_ok, _ = run_fixed(backend, items, "large-tier")
-    routed_m, routed_ok, _, tiers = run_routed(backend, items, args.threshold)
+    routed_m, routed_ok, _, tiers = run_routed(backend, items, args.threshold, args.router)
 
     def row(name: str, m: Metrics, ok: int, extra: str = "") -> None:
         mean_lat = sum(m.latencies_ms) / len(m.latencies_ms)

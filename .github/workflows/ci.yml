@@ -27,6 +27,33 @@ jobs:
       - name: Run benchmark
         run: python -m app.eval
 
+  routing-quality:
+    # Cost is not the only thing that can regress. This fails the build if the
+    # router starts sending genuinely complex requests to the cheap tier,
+    # which is a quality regression no cost metric would surface.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Measure routing quality
+        run: |
+          python -m app.routereport
+          python - <<'EOF'
+          from app import routebench as rb
+          from app.router_v2 import complexity_score
+
+          scorer = lambda p: complexity_score(p, 256)
+          holdout = rb.score_router(scorer, rb.split("holdout"), 0.10)
+          adversarial = rb.score_router(scorer, rb.split("adversarial"), 0.10)
+
+          assert adversarial.misroute_rate == 0.0, adversarial.to_dict()
+          assert holdout.misroute_rate <= 0.10, holdout.to_dict()
+          assert holdout.overspend_rate == 0.0, holdout.to_dict()
+          print("routing quality holds:", holdout.to_dict())
+          EOF
+
   docker:
     runs-on: ubuntu-latest
     steps:

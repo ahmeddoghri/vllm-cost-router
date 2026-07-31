@@ -22,7 +22,8 @@ _backend = get_backend(settings.backend, settings.openai_base_url, settings.open
 _cache = TTLCache(max_size=settings.cache_max_size, ttl_seconds=settings.cache_ttl_seconds)
 _metrics = Metrics()
 _gateway = Gateway(_backend, _cache, _metrics, settings.complexity_threshold,
-                    settings.small_model, settings.large_model)
+                    settings.small_model, settings.large_model,
+                    settings.router_version)
 
 
 class CompletionRequest(BaseModel):
@@ -45,7 +46,8 @@ class BatchCompletionRequest(BaseModel):
 @app.get("/healthz")
 def healthz() -> dict:
     """Liveness probe: the process is up."""
-    return {"status": "ok", "backend": settings.backend}
+    return {"status": "ok", "backend": settings.backend,
+            "router": settings.router_version}
 
 
 @app.get("/readyz")

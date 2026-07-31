@@ -10,7 +10,29 @@ from dataclasses import dataclass
 from .backend import CompletionResult, LLMBackend
 from .cache import TTLCache, cache_key
 from .metrics import Metrics
-from .router import choose_tier
+from .router import choose_tier as choose_tier_v1
+from .router_v2 import choose_tier as choose_tier_v2
+
+
+def get_router(version: str):
+    """Pick a routing function by name.
+
+    Defaults to v2 for anything unrecognized: the failure mode of the keyword
+    router is silent (hard requests quietly answered by the small model), so
+    it should never be reached by accident.
+    """
+    return choose_tier_v1 if version == "v1" else choose_tier_v2
+
+
+#: Each scorer produces values on its own scale, so a threshold is only
+#: meaningful paired with the router it was chosen for. Passing v1's 0.5 to the
+#: structural scorer silently sends nearly everything to the cheap tier, which
+#: is exactly the failure this package exists to prevent.
+DEFAULT_THRESHOLDS = {"v1": 0.50, "v2": 0.10}
+
+
+def default_threshold(version: str) -> float:
+    return DEFAULT_THRESHOLDS.get(version, DEFAULT_THRESHOLDS["v2"])
 
 
 @dataclass
@@ -21,19 +43,24 @@ class Request:
 
 class Gateway:
     def __init__(self, backend: LLMBackend, cache: TTLCache, metrics: Metrics,
-                 threshold: float, small_model: str, large_model: str) -> None:
+                 threshold: float | None = None, small_model: str = "small-tier",
+                 large_model: str = "large-tier", router_version: str = "v2") -> None:
         self.backend = backend
         self.cache = cache
         self.metrics = metrics
-        self.threshold = threshold
+        # None means "whatever is right for this router", which is the only
+        # safe default given the two scorers use different scales.
+        self.threshold = default_threshold(router_version) if threshold is None else threshold
         self.small_model = small_model
         self.large_model = large_model
+        self.router_version = router_version
+        self.choose_tier = get_router(router_version)
 
     def complete_one(self, req: Request) -> CompletionResult:
         """Single-request path (typical interactive traffic): cache, then a
         single-item backend call at whatever tier the router picks."""
-        tier, _ = choose_tier(req.prompt, req.max_tokens, self.threshold,
-                              self.small_model, self.large_model)
+        tier, _ = self.choose_tier(req.prompt, req.max_tokens, self.threshold,
+                                   self.small_model, self.large_model)
         key = cache_key(req.prompt, tier, req.max_tokens)
         cached = self.cache.get(key)
         if cached is not None:
@@ -55,8 +82,8 @@ class Gateway:
         groups: dict[str, list[int]] = {}
 
         for i, req in enumerate(reqs):
-            tier, _ = choose_tier(req.prompt, req.max_tokens, self.threshold,
-                                  self.small_model, self.large_model)
+            tier, _ = self.choose_tier(req.prompt, req.max_tokens, self.threshold,
+                                       self.small_model, self.large_model)
             key = cache_key(req.prompt, tier, req.max_tokens)
             cached = self.cache.get(key)
             if cached is not None:

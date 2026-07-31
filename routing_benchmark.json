@@ -1,0 +1,166 @@
+{
+  "routers": {
+    "keyword (v1)": {
+      "threshold": 0.5,
+      "splits": {
+        "easy": {
+          "split": "easy",
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "misroute_rate": 0.0,
+          "overspend_rate": 0.0,
+          "counts": {
+            "true_positive": 8,
+            "false_positive": 0,
+            "true_negative": 16,
+            "false_negative": 0
+          }
+        },
+        "adversarial": {
+          "split": "adversarial",
+          "accuracy": 0.5417,
+          "precision": 1.0,
+          "recall": 0.0833,
+          "f1": 0.1538,
+          "misroute_rate": 0.9167,
+          "overspend_rate": 0.0,
+          "counts": {
+            "true_positive": 1,
+            "false_positive": 0,
+            "true_negative": 12,
+            "false_negative": 11
+          }
+        },
+        "holdout": {
+          "split": "holdout",
+          "accuracy": 0.5455,
+          "precision": 1.0,
+          "recall": 0.0,
+          "f1": 0.0,
+          "misroute_rate": 1.0,
+          "overspend_rate": 0.0,
+          "counts": {
+            "true_positive": 0,
+            "false_positive": 0,
+            "true_negative": 12,
+            "false_negative": 10
+          }
+        },
+        "overall": {
+          "split": "overall",
+          "accuracy": 0.7,
+          "precision": 1.0,
+          "recall": 0.3,
+          "f1": 0.4615,
+          "misroute_rate": 0.7,
+          "overspend_rate": 0.0,
+          "counts": {
+            "true_positive": 9,
+            "false_positive": 0,
+            "true_negative": 40,
+            "false_negative": 21
+          }
+        }
+      }
+    },
+    "structural (v2)": {
+      "threshold": 0.1,
+      "splits": {
+        "easy": {
+          "split": "easy",
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "misroute_rate": 0.0,
+          "overspend_rate": 0.0,
+          "counts": {
+            "true_positive": 8,
+            "false_positive": 0,
+            "true_negative": 16,
+            "false_negative": 0
+          }
+        },
+        "adversarial": {
+          "split": "adversarial",
+          "accuracy": 1.0,
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1": 1.0,
+          "misroute_rate": 0.0,
+          "overspend_rate": 0.0,
+          "counts": {
+            "true_positive": 12,
+            "false_positive": 0,
+            "true_negative": 12,
+            "false_negative": 0
+          }
+        },
+        "holdout": {
+          "split": "holdout",
+          "accuracy": 0.9545,
+          "precision": 1.0,
+          "recall": 0.9,
+          "f1": 0.9474,
+          "misroute_rate": 0.1,
+          "overspend_rate": 0.0,
+          "counts": {
+            "true_positive": 9,
+            "false_positive": 0,
+            "true_negative": 12,
+            "false_negative": 1
+          }
+        },
+        "overall": {
+          "split": "overall",
+          "accuracy": 0.9857,
+          "precision": 1.0,
+          "recall": 0.9667,
+          "f1": 0.9831,
+          "misroute_rate": 0.0333,
+          "overspend_rate": 0.0,
+          "counts": {
+            "true_positive": 29,
+            "false_positive": 0,
+            "true_negative": 40,
+            "false_negative": 1
+          }
+        }
+      }
+    }
+  },
+  "baselines": {
+    "always_large": {
+      "split": "overall",
+      "accuracy": 0.4286,
+      "precision": 0.4286,
+      "recall": 1.0,
+      "f1": 0.6,
+      "misroute_rate": 0.0,
+      "overspend_rate": 1.0,
+      "counts": {
+        "true_positive": 30,
+        "false_positive": 40,
+        "true_negative": 0,
+        "false_negative": 0
+      }
+    },
+    "always_small": {
+      "split": "overall",
+      "accuracy": 0.5714,
+      "precision": 1.0,
+      "recall": 0.0,
+      "f1": 0.0,
+      "misroute_rate": 1.0,
+      "overspend_rate": 0.0,
+      "counts": {
+        "true_positive": 0,
+        "false_positive": 0,
+        "true_negative": 40,
+        "false_negative": 30
+      }
+    }
+  }
+}
