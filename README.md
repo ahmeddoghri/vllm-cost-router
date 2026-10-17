@@ -1,8 +1,11 @@
 # vllm-cost-router
 
-![tests](https://img.shields.io/badge/tests-65%20passing-brightgreen)
+[![tests](https://github.com/ahmeddoghri/vllm-cost-router/actions/workflows/tests.yml/badge.svg)](https://github.com/ahmeddoghri/vllm-cost-router/actions/workflows/tests.yml)
 ![python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![license](https://img.shields.io/badge/license-MIT-black)
+[![case study](https://img.shields.io/badge/case%20study-adoghri.com-e0703e)](https://adoghri.com/project-4.html)
+
+![vllm-cost-router](docs/cover.jpg)
 
 > **73% lower cost and 73% lower p95 latency** on a 500-request mixed
 > workload, zero API keys to reproduce it: `python -m app.eval`.
@@ -305,7 +308,7 @@ without leaking stack traces.
 ## Tests
 
 ```bash
-pip install -r requirements-dev.txt && pytest -q      # 28 passing
+pip install -r requirements-dev.txt && pytest -q      # 65 passing
 ```
 
 ## More in this series
