@@ -8,7 +8,8 @@ from app import routebench as rb
 from app.eval import generate_workload, run_naive, run_router
 from app.gateway import Gateway, Request, get_router
 from app.router import complexity_score as v1_score
-from app.router_v2 import analyze, complexity_score as v2_score
+from app.router_v2 import analyze
+from app.router_v2 import complexity_score as v2_score
 
 V1_THRESHOLD = 0.50
 V2_THRESHOLD = 0.10
